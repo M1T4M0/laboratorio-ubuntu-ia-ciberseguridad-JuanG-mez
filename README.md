@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Laboratorio: Integracion de IA Local, Redes y Ciberseguridad (Ubuntu / Ollama)
 
 Repositorio de entregables para el laboratorio practico de despliegue de modelos de lenguaje locales, administracion de servicios en Linux y analisis de trafico de red.
@@ -42,3 +43,6 @@ Abre tu navegador web e ingresa a:
 ```text
 http://localhost:8000
 ```
+=======
+# laboratorio-ubuntu-ia-ciberseguridad-JuanG-mez
+>>>>>>> efbc03dddde44aa636e99b4d5d5bbd4032391bb3
