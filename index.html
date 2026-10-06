@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AsistenteIA-VM | Laboratorio de Ciberseguridad</title>
+    <!-- Carga de Tailwind CSS para el diseño rápido y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración personalizada de Tailwind para colores temáticos -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0f172a',
+                        panelbg: '#1e293b',
+                        accent: '#38bdf8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos personalizados para la barra de desplazamiento y animaciones suaves */
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: #0f172a; color: #f8fafc; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .typing-indicator span {
+            animation: blink 1.4s infinite both;
+            height: 6px; width: 6px; background: #94a3b8; border-radius: 50%; display: inline-block; margin: 0 1px;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden selection:bg-accent selection:text-white">
+
+    <!-- Header / Barra superior de configuración -->
+    <header class="bg-panelbg border-b border-slate-700 p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 shadow-md">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-blue-600 flex items-center justify-center font-bold text-lg shadow-lg">
+                IA
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">AsistenteIA-VM</h1>
+                <p class="text-xs text-slate-400">Integración Ollama Local (127.0.0.1:11434)</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <label for="modelSelect" class="text-sm text-slate-300 whitespace-nowrap">Modelo:</label>
+            <select id="modelSelect" class="bg-slate-800 border border-slate-600 text-sm rounded-lg block w-full p-2.5 focus:ring-accent focus:border-accent outline-none transition-all">
+                <option value="">Cargando modelos...</option>
+            </select>
+            <button id="refreshModelsBtn" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg transition-colors cursor-pointer" title="Recargar modelos">
+                ↻
+            </button>
+        </div>
+    </header>
+
+    <!-- Contenedor principal del chat -->
+    <main id="chatContainer" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth">
+        <!-- Mensaje de bienvenida inicial -->
+        <div class="flex gap-4 max-w-4xl mx-auto items-start">
+            <div class="w-8 h-8 rounded-full bg-accent flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-md text-slate-900">IA</div>
+            <div class="bg-panelbg border border-slate-700 p-4 rounded-2xl rounded-tl-none shadow-sm text-slate-200">
+                <p>Hola. Soy tu asistente local de ciberseguridad. ¿En qué te puedo ayudar hoy con tu análisis de red o sistema?</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Contenedor de Alertas (Reemplaza los alerts nativos) -->
+    <div id="alertBox" class="hidden absolute top-20 left-1/2 -translate-x-1/2 bg-red-900/90 border border-red-500 text-red-100 px-6 py-4 rounded-lg shadow-2xl max-w-lg w-full z-50 backdrop-blur-sm">
+        <div class="flex justify-between items-start mb-2">
+            <h3 class="font-bold text-lg flex items-center gap-2">⚠️ Error de Conexión</h3>
+            <button onclick="document.getElementById('alertBox').classList.add('hidden')" class="text-red-300 hover:text-white font-bold">&times;</button>
+        </div>
+        <p id="alertMessage" class="text-sm mb-3">No se pudo conectar con Ollama.</p>
+        <div class="bg-red-950 p-3 rounded text-xs text-red-200 font-mono">
+            <p><strong>Solución para CORS:</strong> Si el navegador bloquea la petición, debes iniciar Ollama con permisos de origen. En tu terminal ejecuta:</p>
+            <code class="block mt-1 text-accent">OLLAMA_ORIGINS="*" ollama serve</code>
+        </div>
+    </div>
+
+    <!-- Área de entrada de texto -->
+    <footer class="bg-panelbg border-t border-slate-700 p-4 shrink-0">
+        <div class="max-w-4xl mx-auto relative flex items-end gap-2">
+            <textarea id="promptInput" rows="1" 
+                class="w-full bg-slate-800 border border-slate-600 rounded-xl py-3 px-4 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none transition-all max-h-32 overflow-y-auto" 
+                placeholder="Escribe tu consulta aquí... (Usa Shift + Enter para nueva línea)"></textarea>
+            
+            <button id="sendBtn" class="bg-accent hover:bg-sky-400 text-slate-900 font-bold p-3 rounded-xl transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M227.32,28.68a16,16,0,0,0-15.66-4.08l-192,64A16,16,0,0,0,18,120.36L83,149.25l78.7-78.71a8,8,0,0,1,11.31,11.31l-78.71,78.7L123.23,225.5a16,16,0,0,0,14.62,9.39h1.16a16,16,0,0,0,14.58-10.43l80-184A16,16,0,0,0,227.32,28.68ZM135.5,212.13,103.11,139,183.3,58.83Z"></path>
+                </svg>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        // Configuración de la API local de Ollama
+        const OLLAMA_URL = 'http://localhost:11434';
+        
+        // Elementos del DOM
+        const chatContainer = document.getElementById('chatContainer');
+        const promptInput = document.getElementById('promptInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const modelSelect = document.getElementById('modelSelect');
+        const refreshModelsBtn = document.getElementById('refreshModelsBtn');
+        
+        // Estado de la aplicación
+        let chatHistory = []; // Array para mantener el contexto de la conversación
+        let isGenerating = false;
+
+        // Auto-ajustar altura del textarea
+        promptInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight < 128 ? this.scrollHeight : 128) + 'px';
+            if (this.value.trim() === '') this.style.height = 'auto';
+        });
+
+        // Manejar Enter para enviar (Shift+Enter para salto de línea)
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+        refreshModelsBtn.addEventListener('click', fetchModels);
+
+        // Función para obtener la lista de modelos instalados en Ollama local
+        async function fetchModels() {
+            modelSelect.innerHTML = '<option value="">Cargando...</option>';
+            modelSelect.disabled = true;
+            
+            try {
+                const response = await fetch(`${OLLAMA_URL}/api/tags`);
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                
+                modelSelect.innerHTML = ''; // Limpiar opciones
+                
+                if (data.models && data.models.length > 0) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                    modelSelect.disabled = false;
+                } else {
+                    modelSelect.innerHTML = '<option value="">No hay modelos instalados</option>';
+                }
+            } catch (error) {
+                console.error("Error al obtener modelos:", error);
+                modelSelect.innerHTML = '<option value="">Error de conexión</option>';
+                showError("No se pudo conectar con la API de Ollama para obtener los modelos. Verifica que el servicio esté activo y los problemas de CORS.");
+            }
+        }
+
+        // Función principal para enviar un mensaje a la IA
+        async function sendMessage() {
+            const text = promptInput.value.trim();
+            const selectedModel = modelSelect.value;
+
+            if (!text || isGenerating) return;
+            if (!selectedModel) {
+                showError("Por favor selecciona un modelo primero.");
+                return;
+            }
+
+            // Preparar UI
+            promptInput.value = '';
+            promptInput.style.height = 'auto';
+            isGenerating = true;
+            sendBtn.disabled = true;
+
+            // 1. Añadir mensaje del usuario a la interfaz
+            appendUserMessage(text);
+            
+            // 2. Añadir al historial interno (para contexto)
+            chatHistory.push({ role: 'user', content: text });
+
+            // 3. Mostrar indicador de carga
+            const loadingId = appendLoadingIndicator();
+
+            try {
+                // Llamada a la API usando el endpoint /api/chat para mantener contexto
+                const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: selectedModel,
+                        messages: chatHistory, // Enviamos todo el historial
+                        stream: false // Para simplicidad en este lab, desactivamos el streaming de datos
+                    })
+                });
+
+                // Remover indicador de carga
+                removeElement(loadingId);
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const aiResponse = data.message.content;
+
+                // 4. Añadir respuesta de IA a la interfaz
+                appendAIMessage(aiResponse);
+
+                // 5. Guardar en el historial
+                chatHistory.push({ role: 'assistant', content: aiResponse });
+
+            } catch (error) {
+                removeElement(loadingId);
+                appendSystemMessage("Error: La conexión con el modelo falló.");
+                showError(error.message);
+                // Eliminar el último mensaje de usuario del historial si falló
+                chatHistory.pop(); 
+            } finally {
+                isGenerating = false;
+                sendBtn.disabled = false;
+                promptInput.focus();
+            }
+        }
+
+        // Funciones auxiliares de Interfaz Gráfica (UI)
+        
+        function appendUserMessage(text) {
+            const html = `
+                <div class="flex gap-4 max-w-4xl mx-auto items-start flex-row-reverse">
+                    <div class="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-md">Tú</div>
+                    <div class="bg-blue-900/40 border border-blue-700 p-4 rounded-2xl rounded-tr-none shadow-sm text-slate-100 whitespace-pre-wrap">${escapeHTML(text)}</div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+        }
+
+        function appendAIMessage(text) {
+            // Reemplaza formateos básicos de markdown a HTML de forma simple
+            let formattedText = escapeHTML(text)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code class="bg-slate-800 text-accent px-1 rounded">$1</code>')
+                .replace(/\n/g, '<br>');
+
+            const html = `
+                <div class="flex gap-4 max-w-4xl mx-auto items-start">
+                    <div class="w-8 h-8 rounded-full bg-accent flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-md text-slate-900">IA</div>
+                    <div class="bg-panelbg border border-slate-700 p-4 rounded-2xl rounded-tl-none shadow-sm text-slate-200 leading-relaxed">
+                        ${formattedText}
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+        }
+
+        function appendSystemMessage(text) {
+            const html = `
+                <div class="text-center text-xs text-red-400 my-4 font-mono">${escapeHTML(text)}</div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+        }
+
+        function appendLoadingIndicator() {
+            const id = 'loading-' + Date.now();
+            const html = `
+                <div id="${id}" class="flex gap-4 max-w-4xl mx-auto items-start">
+                    <div class="w-8 h-8 rounded-full bg-accent/50 flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-md text-slate-900">IA</div>
+                    <div class="bg-panelbg border border-slate-700 px-4 py-5 rounded-2xl rounded-tl-none shadow-sm flex items-center h-full">
+                        <div class="typing-indicator flex items-center justify-center h-full">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+            return id;
+        }
+
+        function removeElement(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+            );
+        }
+
+        function showError(msg) {
+            document.getElementById('alertMessage').textContent = msg;
+            document.getElementById('alertBox').classList.remove('hidden');
+            // Auto-ocultar después de 15 segundos
+            setTimeout(() => {
+                document.getElementById('alertBox').classList.add('hidden');
+            }, 15000);
+        }
+
+        // Inicializar la aplicación al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchModels();
+            promptInput.focus();
+        });
+
+    </script>
+</body>
+</html>
