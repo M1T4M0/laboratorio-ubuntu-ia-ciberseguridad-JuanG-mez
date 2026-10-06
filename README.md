@@ -17,6 +17,7 @@ Repositorio de entregables para el laboratorio practico de despliegue de modelos
 ---
 
 ## Estructura del Repositorio
+* `INFORME JUAN GÓMEZ (1).pdf`: Informe del paso a paso de la realización del taller y proyecto.
 * `index.html`: Interfaz web interactiva para la consulta del modelo local con gestion de errores y diseno responsivo.
 * `Modelfile`: Archivo de configuracion del modelo personalizado en Ollama.
 * `README.md`: Documentacion y guia del proyecto.
